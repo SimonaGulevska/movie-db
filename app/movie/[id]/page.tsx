@@ -2,35 +2,24 @@ import Image from 'next/image';
 import { getMovieDetails, getSimilarMovies } from '@/lib/tmdb';
 import MovieCard from '@/components/MovieCard';
 import { supabase } from '@/lib/supabase';
+import ReviewSection from '@/components/ReviewSection';
 
 export default async function MovieDetails({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   
-  const [movie, similarMovies, { data: { user } }] = await Promise.all([
+  const [movie, similarMovies, { data: { session } }, { data: { user } }] = await Promise.all([
     getMovieDetails(id),
     getSimilarMovies(id),
+    supabase.auth.getSession(),
     supabase.auth.getUser()
   ]);
 
   if (!movie) return <div className="p-20 text-center text-white">Movie not found.</div>;
 
-  const userId = user?.id || null;
-
-  // Record Recently Viewed if user is logged in
-  if (userId) {
-    await supabase.from('recently_viewed').upsert({
-      user_id: userId,
-      movie_id: movie.id,
-      title: movie.title,
-      poster_path: movie.poster_path,
-      rating: movie.vote_average,
-      viewed_at: new Date().toISOString()
-    }, { onConflict: 'user_id, movie_id' });
-  }
+  const userId = user?.id || session?.user?.id || null;
 
   return (
     <main className="min-h-screen bg-black text-white">
-      {/* Hero Banner Area */}
       <div className="relative h-[60vh] w-full">
         <Image 
           src={`https://image.tmdb.org/t/p/original${movie.backdrop_path}`}
@@ -38,12 +27,19 @@ export default async function MovieDetails({ params }: { params: Promise<{ id: s
           fill
           className="object-cover opacity-40"
           priority
+          sizes="100vw"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
         
         <div className="absolute bottom-10 left-10 flex gap-8 items-end w-full pr-10">
           <div className="relative w-48 h-72 hidden md:block border-2 border-zinc-800 rounded-lg overflow-hidden shadow-2xl shrink-0">
-            <Image src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`} alt={movie.title} fill className="object-cover" />
+            <Image 
+              src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`} 
+              alt={movie.title} 
+              fill 
+              className="object-cover" 
+              sizes="(max-width: 768px) 0vw, 200px"
+            />
           </div>
           <div className="flex-grow">
             <h1 className="text-4xl md:text-6xl font-black mb-4 leading-tight">{movie.title}</h1>
@@ -70,6 +66,9 @@ export default async function MovieDetails({ params }: { params: Promise<{ id: s
               <p className="text-zinc-300 leading-relaxed text-lg">{movie.overview}</p>
             </section>
 
+            {/* User Review Section - Simplified to allow component-side auth */}
+            <ReviewSection movieId={movie.id} />
+
             <section>
               <h2 className="text-2xl font-bold mb-6 text-yellow-500">Top Cast</h2>
               <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide">
@@ -82,6 +81,7 @@ export default async function MovieDetails({ params }: { params: Promise<{ id: s
                         alt={actor.name} 
                         fill 
                         className="object-cover" 
+                        sizes="100px"
                       />
                     ) : (
                       <span className="text-zinc-500 font-bold text-xl uppercase">

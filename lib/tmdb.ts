@@ -28,13 +28,19 @@ export async function getMovieDetails(id: string) {
   return res.json();
 }
 
-// Added function to fetch similar movies
 export async function getSimilarMovies(id: string) {
   const res = await fetch(
     `${BASE_URL}/movie/${id}/similar?api_key=${API_KEY}`,
     { next: { revalidate: 3600 } }
   );
   if (!res.ok) return [];
+  const data = await res.json();
+  return data.results;
+}
+
+// Added function for Upcoming Releases
+export async function getUpcomingMovies() {
+  const res = await fetch(`${BASE_URL}/movie/upcoming?api_key=${API_KEY}`);
   const data = await res.json();
   return data.results;
 }
